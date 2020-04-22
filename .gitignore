@@ -1,5 +1,8 @@
 .DS_Store
 
+# PyCharm
+.idea/
+
 # Auto generated files
 *.hack
 *.out
