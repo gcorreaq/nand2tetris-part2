@@ -3,6 +3,10 @@
 # PyCharm
 .idea/
 
+# Compiled files
+__pycache__/
+*.pyc
+
 # Auto generated files
 *.hack
 *.out
