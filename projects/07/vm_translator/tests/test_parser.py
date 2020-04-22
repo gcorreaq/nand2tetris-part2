@@ -53,4 +53,4 @@ def test_raises_exception_with_unknown_command(file_with_garbage):
     with pytest.raises(ValueError) as exception_info:
         list(parser.parse_file())
 
-    assert 'Unrecognized command' in str(exception_info.value)
+    assert 'Invalid command length' in str(exception_info.value)
