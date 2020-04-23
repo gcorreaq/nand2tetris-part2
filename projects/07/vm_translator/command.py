@@ -1,5 +1,5 @@
 import enum
-from typing import Optional
+from typing import Optional, Union
 
 
 class ArithmeticCommandClass(enum.Enum):
@@ -25,9 +25,9 @@ class Command:
             command_class: str,
             target_segment: Optional[str] = None,
             index: Optional[int] = None):
-        self.target_segment = target_segment
-        self.index = self._parse_and_validate_index(index)
-        self.command_class = self._parse_and_validate_command_class(command_class)
+        self.target_segment: str = target_segment
+        self.index: int = self._parse_and_validate_index(index)
+        self.command_class: Union[ArithmeticCommandClass, StackCommandClass] = self._parse_and_validate_command_class(command_class)
 
     def _parse_and_validate_index(self, index):
         if index is None:
