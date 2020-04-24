@@ -1,90 +1,67 @@
-from command import Command
+from pathlib import Path
+from typing import Iterable
 
+import assembly_commands
+from command import ArithmeticCommandClass, Command, StackCommandClass
 
-DOUBLE_ARG_ARITHMETIC_COMMAND_TO_OPERATOR = {
-    'add': '+',
-    'sub': '-',
-    'and': '&',
-    'or': '|',
+COMMAND_TO_ASSEMBLY = {
+    ArithmeticCommandClass.ADD: assembly_commands.TwoArgumentArithmeticCommand,
+    ArithmeticCommandClass.SUB: assembly_commands.TwoArgumentArithmeticCommand,
+    ArithmeticCommandClass.AND: assembly_commands.TwoArgumentArithmeticCommand,
+    ArithmeticCommandClass.OR: assembly_commands.TwoArgumentArithmeticCommand,
+    ArithmeticCommandClass.NEG: assembly_commands.OneArgumentArithmeticCommand,
+    ArithmeticCommandClass.NOT: assembly_commands.OneArgumentArithmeticCommand,
+    ArithmeticCommandClass.EQ: assembly_commands.ComparisonCommand,
+    ArithmeticCommandClass.GT: assembly_commands.ComparisonCommand,
+    ArithmeticCommandClass.LT: assembly_commands.ComparisonCommand,
 }
 
-SINGLE_ARG_ARITHMETIC_COMMAND_TO_OPERATOR = {
-    'neg': '-',
-    'not': '!',
+MEMORY_COMMANDS_TO_SEGMENT_AND_ASSEMBLY = {
+    StackCommandClass.POP: {
+        'local': assembly_commands.PopLocalCommand,
+        'static': assembly_commands.PopStaticCommand,
+        'temp': assembly_commands.PopTempCommand,
+        'pointer': assembly_commands.PopPointerCommand,
+    },
+    StackCommandClass.PUSH: {
+        'local': assembly_commands.PushLocalCommand,
+        'static': assembly_commands.PushStaticCommand,
+        'constant': assembly_commands.PushConstantCommand,
+        'temp': assembly_commands.PushTempCommand,
+        'pointer': assembly_commands.PushPointerCommand
+    },
 }
 
 
-class PopCommand:
-    assembly = """
-    // pop {segment} {index}
+class CommandWriter:
 
-    @{segment_base_address}
-    D=M+{index}  // Get the address where index is 
-    @addr
-    M=D   // addr = *segment[i]
+    def __init__(self, original_filename: str, commands: Iterable[Command]):
+        self.original_filename = Path(original_filename)
+        self.commands = commands
 
-    @SP
-    M=M-1  // SP--
-    A=M    // Stack pointer now in top element
-    D=M    // Store whatever the top of the stack had
+    def write_file(self):
+        output_filename = self.original_filename.with_suffix('.asm')
+        with output_filename.open(mode='w') as file_obj:
+            file_obj.writelines(self.compile())
 
-    @addr
-    M=D    //  *addr = *sp
-    """
+    def compile(self):
+        for command in self.commands:
+            if isinstance(command.command_class, ArithmeticCommandClass):
+                yield self._process_arithmetic_command(command)
+            else:
+                yield self._process_memory_command(command)
 
+    def _process_arithmetic_command(self, command: Command) -> str:
+        assembly_compiler_class = COMMAND_TO_ASSEMBLY[command.command_class]
+        assembly_compiler = assembly_compiler_class(command)
+        return assembly_compiler.get_assembly()
 
-class PushCommand:
-    assembly = """
-    // push {segment} {index}
+    def _process_memory_command(self, command: Command) -> str:
+        assembly_compiler_class = MEMORY_COMMANDS_TO_SEGMENT_AND_ASSEMBLY[command.command_class][command.target_segment]
 
-    @{segment_base_address}
-    D=M+{index}   // Get the address where the index is
-    @addr
-    M=D   // addr = *segment[i]
-    D=M   // D stores what *addr is pointing to
+        if isinstance(assembly_compiler_class, assembly_commands.BasePopPushStaticCommand):
+            assembly_compiler = assembly_compiler_class(command, self.original_filename)
+        else:
+            assembly_compiler = assembly_compiler_class(command)
 
-    @SP
-    A=M  // Now pointing to top of stack
-    M=D  // *sp = *addr
-
-    @SP
-    M=M+1  // SP++
-    """
-
-
-class TwoArgumentArithmeticCommand:
-    assembly = """
-    // {operator}
-
-    @SP
-    M=M-1  // SP--
-    A=M    // *sp is in top of stack
-    @second_operand
-    D=M    // we get the data from top of stack
-
-    @SP
-    M=M-1  // SP--
-    A=M    // *sp is in top of stack
-    @first_operand
-    D=M
-
-    @second_operand
-    D=D{translated_operator}M  // We do: first OP second
-
-    @SP
-    A=M
-    M=D   // Store result in top of stack
-
-    @SP
-    M=M+1  // Move stack pointer one position up
-    """
-
-    def __init__(self, command: Command):
-        self.command_name = command.command_class.value
-        self.translated_operator = DOUBLE_ARG_ARITHMETIC_COMMAND_TO_OPERATOR[self.command_name]
-
-    def get_assembly(self):
-        return self.assembly.format(
-            operator=self.command_name,
-            translated_operator=self.translated_operator
-        )
+        return assembly_compiler.get_assembly()
