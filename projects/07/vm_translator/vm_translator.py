@@ -11,7 +11,9 @@ logger = logging.getLogger(__name__)
 
 
 def main(arguments):
-    argument_parser = argparse.ArgumentParser()
+    argument_parser = argparse.ArgumentParser(
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
     argument_parser.add_argument('target_file', help='The target file to process')
     args = argument_parser.parse_args(arguments)
     input_file = Path(args.target_file).absolute()

@@ -20,7 +20,30 @@ COMPARISON_COMMAND_TO_OPERATOR = {
     'lt': 'JLT',
 }
 
-STACK_POINTER_BASE_ADDRESS = '@R0'
+STACK_POINTER_BASE_ADDRESS = '@R0  // SP: Stack Pointer'
+
+MOVE_STACK_POINTER_UP = """
+    {stack_pointer}
+    M=M+1\t//SP++
+""".format(stack_pointer=STACK_POINTER_BASE_ADDRESS)
+
+MOVE_STACK_POINTER_DOWN = """
+    {stack_pointer}
+    M=M-1\t//SP--
+""".format(stack_pointer=STACK_POINTER_BASE_ADDRESS)
+
+TWO_OPERANDS_POP_OPERATIONS = """
+    {stack_pointer_down}
+    A=M\t\t// *sp is in top of stack
+    D=M\t\t// Get value on top of stack
+
+    @second_operand
+    M=D\t\t// Keep value on top of stack in second_operand
+
+    {stack_pointer_down}
+    A=M\t\t// *sp is in top of stack
+    D=M\t\t// Get value on top of stack
+""".format(stack_pointer_down=MOVE_STACK_POINTER_DOWN)
 
 
 class BaseArithmeticAssemblyCommand:
@@ -38,35 +61,26 @@ class BaseArithmeticAssemblyCommand:
         return self.assembly.format(
             stack_pointer=STACK_POINTER_BASE_ADDRESS,
             operator=self.command_name,
-            translated_operator=self.translated_operator
+            translated_operator=self.translated_operator,
+            pop_two_operands=TWO_OPERANDS_POP_OPERATIONS
         )
 
 
 class TwoArgumentArithmeticCommand(BaseArithmeticAssemblyCommand):
     assembly = """
     // {operator}
-
-    {stack_pointer}
-    M=M-1  // SP--
-    A=M    // *sp is in top of stack
+    
+    {pop_two_operands}
+    
     @second_operand
-    D=M    // we get the data from top of stack
-
-    {stack_pointer}
-    M=M-1  // SP--
-    A=M    // *sp is in top of stack
-    @first_operand
-    D=M
-
-    @second_operand
-    D=D{translated_operator}M  // We do: first OP second
+    D=D{translated_operator}M\t// We do: first OP second
 
     {stack_pointer}
     A=M
-    M=D   // Store result in top of stack
+    M=D\t\t// Store result in top of stack
 
     {stack_pointer}
-    M=M+1  // Move stack pointer one position up
+    M=M+1\t// Move stack pointer one position up
     """
     command_mapping = DOUBLE_ARG_ARITHMETIC_COMMAND_TO_OPERATOR
 
@@ -78,7 +92,7 @@ class OneArgumentArithmeticCommand(BaseArithmeticAssemblyCommand):
     {stack_pointer}
     M=M-1  // SP--
     A=M    // *sp is in top of stack
-    @operand
+
     D={translated_operator}M    // we get the data from top of stack, and we apply operator
 
     {stack_pointer}
@@ -95,17 +109,7 @@ class ComparisonCommand(BaseArithmeticAssemblyCommand):
     assembly = """
     // {operator}
     
-    {stack_pointer}
-    M=M-1  // SP--
-    A=M    // *sp is in top of stack
-    @second_operand
-    D=M    // we get the data from top of stack
-
-    {stack_pointer}
-    M=M-1  // SP--
-    A=M    // *sp is in top of stack
-    @first_operand
-    D=M
+    {pop_two_operands}
 
     @second_operand
     D=D-M  // We take the difference between (first - second)
@@ -162,14 +166,12 @@ class PushLocalCommand(BasePopPushLocalCommand):
     // push local {index}
 
     @{segment}
-    D=M+{index}   // Get the address where the index is
-    @addr
-    M=D   // addr = *segment[i]
-    D=M   // D stores what *addr is pointing to
+    A=M+{index}   // Get the address where the index is and point there
+    D=M   // D stores the value of *segment[index]
 
     {stack_pointer}
     A=M  // Now pointing to top of stack
-    M=D  // *sp = *addr
+    M=D  // *sp = *segment[index]
 
     {stack_pointer}
     M=M+1  // SP++
@@ -180,18 +182,13 @@ class PopLocalCommand(BasePopPushLocalCommand):
     assembly = """
     // pop local {index}
 
-    @{segment}
-    D=M+{index}  // Get the address where index is 
-    @addr
-    M=D   // addr = *segment[i]
-
     {stack_pointer}
     M=M-1  // SP--
     A=M    // Stack pointer now in top element
     D=M    // Store whatever the top of the stack had
 
-    @addr
-    A=M
+    @{segment}
+    A=M+{index}  // Get the address where index is 
     M=D    //  *addr = *sp
     """
 
@@ -245,21 +242,24 @@ class PushConstantCommand:
     assembly = """
     // push constant {value}
 
+    @{value}
+    D=A
+
     {stack_pointer}
-    A=M  // Now pointing to top of stack
-    M={value}  // *sp = constant
+    A=M
+    M=D
 
     {stack_pointer}
     M=M+1  // SP++
     """
 
     def __init__(self, command: Command):
-        self.index = command.index
+        self.value = command.index
 
     def get_assembly(self) -> str:
         return self.assembly.format(
             stack_pointer=STACK_POINTER_BASE_ADDRESS,
-            index=self.index
+            value=self.value
         )
 
 
