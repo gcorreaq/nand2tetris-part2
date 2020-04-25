@@ -1,4 +1,5 @@
 from command import Command
+from enumerations import MemorySegment
 
 
 DOUBLE_ARG_ARITHMETIC_COMMAND_TO_OPERATOR = {
@@ -30,7 +31,10 @@ class BaseArithmeticAssemblyCommand:
         self.command_name = command.command_class.value
         self.translated_operator = self.command_mapping[self.command_name]
 
-    def get_assembly(self):
+    def __str__(self):
+        return f"{self.__name__}<{self.command_name}>"
+
+    def get_assembly(self) -> str:
         return self.assembly.format(
             stack_pointer=STACK_POINTER_BASE_ADDRESS,
             operator=self.command_name,
@@ -131,30 +135,29 @@ class ComparisonCommand(BaseArithmeticAssemblyCommand):
 
 
 SEGMENT_ALIASES = {
-    'local': 'R1',
-    'arg': 'R2',
-    'this': 'R3',
-    'that': 'R4',
-    'temp': 'R5'
+    MemorySegment.LOCAL: 'R1',
+    MemorySegment.ARG: 'R2',
+    MemorySegment.THIS: 'R3',
+    MemorySegment.THAT: 'R4',
+    MemorySegment.TEMP: 'R5',
 }
 
 
-class BaseMemoryCommand:
+class BasePopPushLocalCommand:
     assembly = ''
 
     def __init__(self, command: Command):
-        self.segment = command.target_segment
         self.index = command.index
 
-    def get_assembly(self):
+    def get_assembly(self) -> str:
         return self.assembly.format(
             stack_pointer=STACK_POINTER_BASE_ADDRESS,
-            segment_base_address=self.segment,
-            index=self.index
+            index=self.index,
+            segment=SEGMENT_ALIASES[MemorySegment.LOCAL]
         )
 
 
-class PushLocalCommand:
+class PushLocalCommand(BasePopPushLocalCommand):
     assembly = """
     // push local {index}
 
@@ -172,18 +175,8 @@ class PushLocalCommand:
     M=M+1  // SP++
     """
 
-    def __init__(self, command: Command):
-        self.index = command.index
 
-    def get_assembly(self):
-        return self.assembly.format(
-            stack_pointer=STACK_POINTER_BASE_ADDRESS,
-            index=self.index,
-            segment=SEGMENT_ALIASES['local']
-        )
-
-
-class PopLocalCommand:
+class PopLocalCommand(BasePopPushLocalCommand):
     assembly = """
     // pop local {index}
 
@@ -202,16 +195,6 @@ class PopLocalCommand:
     M=D    //  *addr = *sp
     """
 
-    def __init__(self, command: Command):
-        self.index = command.index
-
-    def get_assembly(self):
-        return self.assembly.format(
-            stack_pointer=STACK_POINTER_BASE_ADDRESS,
-            index=self.index,
-            segment=SEGMENT_ALIASES['local']
-        )
-
 
 class BasePopPushStaticCommand:
     assembly = ''
@@ -220,7 +203,7 @@ class BasePopPushStaticCommand:
         self.index = command.index
         self.filename = filename
 
-    def get_assembly(self):
+    def get_assembly(self) -> str:
         return self.assembly.format(
             stack_pointer=STACK_POINTER_BASE_ADDRESS,
             index=self.index,
@@ -273,7 +256,7 @@ class PushConstantCommand:
     def __init__(self, command: Command):
         self.index = command.index
 
-    def get_assembly(self):
+    def get_assembly(self) -> str:
         return self.assembly.format(
             stack_pointer=STACK_POINTER_BASE_ADDRESS,
             index=self.index
@@ -286,11 +269,11 @@ class BasePopPushTempCommand:
     def __init__(self, command: Command):
         self.index = command.index
 
-    def get_assembly(self):
+    def get_assembly(self) -> str:
         return self.assembly.format(
             stack_pointer=STACK_POINTER_BASE_ADDRESS,
             index=self.index,
-            segment=SEGMENT_ALIASES['temp']
+            segment=SEGMENT_ALIASES[MemorySegment.TEMP]
         )
 
 
@@ -335,8 +318,8 @@ class PopTempCommand(BasePopPushTempCommand):
 
 class BasePopPushPointerCommand:
     INDEX_TO_SEGMENT_MAPPING = {
-        0: SEGMENT_ALIASES['this'],
-        1: SEGMENT_ALIASES['that']
+        0: SEGMENT_ALIASES[MemorySegment.THIS],
+        1: SEGMENT_ALIASES[MemorySegment.THAT]
     }
 
     assembly = ''
@@ -345,7 +328,7 @@ class BasePopPushPointerCommand:
         self.index = command.index
         self.segment = self.INDEX_TO_SEGMENT_MAPPING[self.index]
 
-    def get_assembly(self):
+    def get_assembly(self) -> str:
         return self.assembly.format(
             stack_pointer=STACK_POINTER_BASE_ADDRESS,
             index=self.index,

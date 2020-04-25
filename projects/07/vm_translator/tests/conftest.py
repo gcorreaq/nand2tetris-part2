@@ -2,7 +2,11 @@ from io import StringIO
 
 import pytest
 
-from command import ArithmeticCommandClass, StackCommandClass
+from enumerations import (
+    ArithmeticCommandClass,
+    MemorySegment,
+    StackCommandClass,
+)
 from assembly_commands import (
     COMPARISON_COMMAND_TO_OPERATOR,
     DOUBLE_ARG_ARITHMETIC_COMMAND_TO_OPERATOR,
@@ -30,12 +34,20 @@ def file_with_arithmetic_command(request):
     return dummy_file_obj, request.param
 
 
-@pytest.fixture(params=StackCommandClass)
+ALL_STACK_COMMANDS_AND_MEMORY_SEGMENTS = [
+    (stack_command, memory_segment)
+    for stack_command in StackCommandClass
+    for memory_segment in MemorySegment
+]
+
+
+@pytest.fixture(params=ALL_STACK_COMMANDS_AND_MEMORY_SEGMENTS)
 def file_with_stack_command(request):
+    stack_command, memory_segment = request.param
     dummy_file_obj = StringIO(
-        initial_value=f"{request.param.value} segment 0"
+        initial_value=f"{stack_command.value} {memory_segment.value} 0"
     )
-    return dummy_file_obj, request.param
+    return dummy_file_obj, stack_command, memory_segment
 
 
 @pytest.fixture

@@ -1,22 +1,10 @@
-import enum
 from typing import Optional, Union
 
-
-class ArithmeticCommandClass(enum.Enum):
-    ADD = 'add'
-    SUB = 'sub'
-    NEG = 'neg'
-    EQ = 'eq'
-    GT = 'gt'
-    LT = 'lt'
-    AND = 'and'
-    OR = 'or'
-    NOT = 'not'
-
-
-class StackCommandClass(enum.Enum):
-    POP = 'pop'
-    PUSH = 'push'
+from enumerations import (
+    ArithmeticCommandClass,
+    MemorySegment,
+    StackCommandClass,
+)
 
 
 class Command:
@@ -24,12 +12,21 @@ class Command:
             self,
             command_class: str,
             target_segment: Optional[str] = None,
-            index: Optional[int] = None):
-        self.target_segment: str = target_segment
+            index: Optional[str] = None):
+        self.target_segment: MemorySegment = self._parse_and_validate_segment(target_segment)
         self.index: int = self._parse_and_validate_index(index)
         self.command_class: Union[ArithmeticCommandClass, StackCommandClass] = self._parse_and_validate_command_class(command_class)
 
-    def _parse_and_validate_index(self, index):
+    def __str__(self):
+        return f"Command<{self.command_class.value}> {self.target_segment} {self.index}"
+
+    def _parse_and_validate_segment(self, segment: Optional[str]):
+        if segment is None:
+            return None
+
+        return MemorySegment(segment)
+
+    def _parse_and_validate_index(self, index: Optional[str]):
         if index is None:
             return None
 

@@ -1,8 +1,6 @@
 import pytest
 
-from parser import (
-    Parser
-)
+from parser import Parser
 
 
 def test_discards_comments(file_with_comments):
@@ -35,7 +33,7 @@ def test_parses_arithmetic_commands(file_with_arithmetic_command):
 
 
 def test_parses_stack_commands(file_with_stack_command):
-    file_obj, expected_command_class = file_with_stack_command
+    file_obj, expected_command_class, expected_memory_segment = file_with_stack_command
     parser = Parser(file_obj)
 
     parsed_commands = list(parser.parse_file())
@@ -43,7 +41,7 @@ def test_parses_stack_commands(file_with_stack_command):
     assert len(parsed_commands) == 1
     command = parsed_commands[0]
     assert command.command_class == expected_command_class
-    assert command.target_segment == 'segment'
+    assert command.target_segment == expected_memory_segment
     assert command.index == 0
 
 
