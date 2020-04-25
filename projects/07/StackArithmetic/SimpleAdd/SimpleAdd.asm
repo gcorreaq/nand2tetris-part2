@@ -25,8 +25,11 @@
     
     // add
     
-    
-    
+    //
+    // BEGIN: TWO_OPERANDS_POP_OPERATIONS
+    // Pop two operands from the stack and get them ready to be operated
+    //
+
     @R0  // SP: Stack Pointer
     M=M-1	//SP--
 
@@ -36,14 +39,17 @@
     @second_operand
     M=D		// Keep value on top of stack in second_operand
 
-    
     @R0  // SP: Stack Pointer
     M=M-1	//SP--
 
     A=M		// *sp is in top of stack
     D=M		// Get value on top of stack
 
-    
+    //
+    // END: TWO_OPERANDS_POP_OPERATIONS
+    //
+
+
     @second_operand
     D=D+M	// We do: first OP second
 

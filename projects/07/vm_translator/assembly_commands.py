@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from command import Command
 from enumerations import MemorySegment
 
@@ -63,7 +65,7 @@ class BaseArithmeticAssemblyCommand:
         self.translated_operator = self.command_mapping[self.command_name]
 
     def __str__(self):
-        return f"{self.__name__}<{self.command_name}>"
+        return f"{type(self).__name__}<{self.command_name}>"
 
     def get_assembly(self) -> str:
         return self.assembly.format(
@@ -218,7 +220,7 @@ class PopLocalCommand(BasePopPushLocalCommand):
 class BasePopPushStaticCommand:
     assembly = ''
 
-    def __init__(self, command: Command, filename: str):
+    def __init__(self, command: Command, filename: Path):
         self.index = command.index
         self.filename = filename
 
@@ -226,7 +228,7 @@ class BasePopPushStaticCommand:
         return self.assembly.format(
             stack_pointer=STACK_POINTER_BASE_ADDRESS,
             index=self.index,
-            filename=self.filename
+            filename=self.filename.stem
         )
 
 

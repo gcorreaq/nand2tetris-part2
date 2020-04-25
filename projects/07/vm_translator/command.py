@@ -18,7 +18,10 @@ class Command:
         self.command_class: Union[ArithmeticCommandClass, StackCommandClass] = self._parse_and_validate_command_class(command_class)
 
     def __str__(self):
-        return f"Command<{self.command_class.value}> {self.target_segment} {self.index}"
+        if self.target_segment is None and self.index is None:
+            return f"Command<{self.command_class}>"
+        else:
+            return f"Command<{self.command_class} {self.target_segment} INDEX.{self.index}>"
 
     def _parse_and_validate_segment(self, segment: Optional[str]):
         if segment is None:

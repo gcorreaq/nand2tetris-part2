@@ -59,7 +59,7 @@ MEMORY_COMMANDS_TO_SEGMENT_AND_ASSEMBLY = {
 }
 
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("vm_translator.command_writer")
 
 
 def _process_arithmetic_command(command: Command) -> str:
@@ -73,8 +73,14 @@ def _process_arithmetic_command(command: Command) -> str:
 
 def _process_memory_command(command: Command, original_filename: Path) -> str:
     assembly_compiler_class = MEMORY_COMMANDS_TO_SEGMENT_AND_ASSEMBLY[command.command_class][command.target_segment]
+    logger.debug(
+        'Command %s for segment %s match to assembly compiler %s',
+        command,
+        command.target_segment,
+        assembly_compiler_class
+    )
 
-    if isinstance(assembly_compiler_class, BasePopPushStaticCommand):
+    if issubclass(assembly_compiler_class, BasePopPushStaticCommand):
         assembly_compiler = assembly_compiler_class(command, original_filename)
     else:
         assembly_compiler = assembly_compiler_class(command)

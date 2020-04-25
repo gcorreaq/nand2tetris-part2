@@ -4,7 +4,7 @@ from typing import Iterator, List, TextIO
 from command import Command
 
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("vm_translator.parser")
 
 
 class Parser:
