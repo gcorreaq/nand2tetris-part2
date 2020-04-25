@@ -20,7 +20,7 @@ class StackCommandClass(enum.Enum):
 
 class MemorySegment(enum.Enum):
     LOCAL = 'local'
-    ARG = 'arg'
+    ARG = 'argument'
     THIS = 'this'
     THAT = 'that'
     TEMP = 'temp'

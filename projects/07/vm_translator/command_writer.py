@@ -39,12 +39,18 @@ COMMAND_TO_ASSEMBLY = {
 MEMORY_COMMANDS_TO_SEGMENT_AND_ASSEMBLY = {
     StackCommandClass.POP: {
         MemorySegment.LOCAL: PopLocalCommand,
+        MemorySegment.ARG: PopLocalCommand,
+        MemorySegment.THIS: PopLocalCommand,
+        MemorySegment.THAT: PopLocalCommand,
         MemorySegment.STATIC: PopStaticCommand,
         MemorySegment.TEMP: PopTempCommand,
         MemorySegment.POINTER: PopPointerCommand,
     },
     StackCommandClass.PUSH: {
         MemorySegment.LOCAL: PushLocalCommand,
+        MemorySegment.ARG: PushLocalCommand,
+        MemorySegment.THIS: PushLocalCommand,
+        MemorySegment.THAT: PushLocalCommand,
         MemorySegment.STATIC: PushStaticCommand,
         MemorySegment.CONSTANT: PushConstantCommand,
         MemorySegment.TEMP: PushTempCommand,

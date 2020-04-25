@@ -24,20 +24,26 @@
     M=M+1  // SP++
     
     // add
-
+    
+    
+    
     @R0  // SP: Stack Pointer
-    M=M-1	// SP--
+    M=M-1	//SP--
+
     A=M		// *sp is in top of stack
     D=M		// Get value on top of stack
 
     @second_operand
     M=D		// Keep value on top of stack in second_operand
 
+    
     @R0  // SP: Stack Pointer
-    M=M-1	// SP--
+    M=M-1	//SP--
+
     A=M		// *sp is in top of stack
     D=M		// Get value on top of stack
 
+    
     @second_operand
     D=D+M	// We do: first OP second
 

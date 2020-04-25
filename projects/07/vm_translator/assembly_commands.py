@@ -27,12 +27,16 @@ MOVE_STACK_POINTER_UP = """
     M=M+1\t//SP++
 """.format(stack_pointer=STACK_POINTER_BASE_ADDRESS)
 
-MOVE_STACK_POINTER_DOWN = """
-    {stack_pointer}
+MOVE_STACK_POINTER_DOWN = """{stack_pointer}
     M=M-1\t//SP--
 """.format(stack_pointer=STACK_POINTER_BASE_ADDRESS)
 
 TWO_OPERANDS_POP_OPERATIONS = """
+    //
+    // BEGIN: TWO_OPERANDS_POP_OPERATIONS
+    // Pop two operands from the stack and get them ready to be operated
+    //
+
     {stack_pointer_down}
     A=M\t\t// *sp is in top of stack
     D=M\t\t// Get value on top of stack
@@ -43,6 +47,10 @@ TWO_OPERANDS_POP_OPERATIONS = """
     {stack_pointer_down}
     A=M\t\t// *sp is in top of stack
     D=M\t\t// Get value on top of stack
+
+    //
+    // END: TWO_OPERANDS_POP_OPERATIONS
+    //
 """.format(stack_pointer_down=MOVE_STACK_POINTER_DOWN)
 
 
@@ -69,9 +77,8 @@ class BaseArithmeticAssemblyCommand:
 class TwoArgumentArithmeticCommand(BaseArithmeticAssemblyCommand):
     assembly = """
     // {operator}
-    
     {pop_two_operands}
-    
+
     @second_operand
     D=D{translated_operator}M\t// We do: first OP second
 
@@ -147,26 +154,41 @@ SEGMENT_ALIASES = {
 }
 
 
+def _get_real_address_calculation(index: int) -> str:
+    if index == 0:
+        offset = "A=M"
+    else:
+        offset = "A=M+1"
+        for repetitions in range(index - 1):
+            offset += "\n    A=A+1"
+
+    return offset
+
+
 class BasePopPushLocalCommand:
     assembly = ''
 
     def __init__(self, command: Command):
         self.index = command.index
+        self.segment = SEGMENT_ALIASES[command.target_segment]
+        self.segment_name = command.target_segment.value
 
     def get_assembly(self) -> str:
         return self.assembly.format(
             stack_pointer=STACK_POINTER_BASE_ADDRESS,
             index=self.index,
-            segment=SEGMENT_ALIASES[MemorySegment.LOCAL]
+            segment=self.segment,
+            segment_name=self.segment_name,
+            address_calculation=_get_real_address_calculation(self.index)
         )
 
 
 class PushLocalCommand(BasePopPushLocalCommand):
     assembly = """
-    // push local {index}
+    // push {segment_name} {index}
 
     @{segment}
-    A=M+{index}   // Get the address where the index is and point there
+    {address_calculation}
     D=M   // D stores the value of *segment[index]
 
     {stack_pointer}
@@ -180,7 +202,7 @@ class PushLocalCommand(BasePopPushLocalCommand):
 
 class PopLocalCommand(BasePopPushLocalCommand):
     assembly = """
-    // pop local {index}
+    // pop {segment_name} {index}
 
     {stack_pointer}
     M=M-1  // SP--
@@ -188,7 +210,7 @@ class PopLocalCommand(BasePopPushLocalCommand):
     D=M    // Store whatever the top of the stack had
 
     @{segment}
-    A=M+{index}  // Get the address where index is 
+    {address_calculation}
     M=D    //  *addr = *sp
     """
 
@@ -269,11 +291,20 @@ class BasePopPushTempCommand:
     def __init__(self, command: Command):
         self.index = command.index
 
+    def _get_real_address(self):
+        offset = ""
+        if self.index > 0:
+            for repetition in range(self.index):
+                offset += "\n    A=A+1"
+
+        return offset
+
     def get_assembly(self) -> str:
         return self.assembly.format(
             stack_pointer=STACK_POINTER_BASE_ADDRESS,
             index=self.index,
-            segment=SEGMENT_ALIASES[MemorySegment.TEMP]
+            segment=SEGMENT_ALIASES[MemorySegment.TEMP],
+            address_calculation=self._get_real_address()
         )
 
 
@@ -282,10 +313,8 @@ class PushTempCommand(BasePopPushTempCommand):
     // push temp {index}
     
     @{segment}
-    D=M+{index}   // Get the address where the index is
-    @addr
-    M=D   // addr = *segment[i]
-    D=M   // D stores what *addr is pointing to
+    {address_calculation}
+    D=M   // D stores the value of *segment[index]
 
     {stack_pointer}
     A=M  // Now pointing to top of stack
@@ -300,19 +329,14 @@ class PopTempCommand(BasePopPushTempCommand):
     assembly = """
     // pop temp {index}
 
-    @{segment}
-    D=M+{index}  // Get the address where index is 
-    @addr
-    M=D   // addr = *segment[i]
-
     {stack_pointer}
     M=M-1  // SP--
     A=M    // Stack pointer now in top element
     D=M    // Store whatever the top of the stack had
 
-    @addr
-    A=M
-    M=D    //  *addr = *sp
+    @{segment}
+    {address_calculation}
+    M=D   // addr = *segment[i]
     """
 
 
