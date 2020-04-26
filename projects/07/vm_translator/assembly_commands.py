@@ -29,9 +29,28 @@ MOVE_STACK_POINTER_UP = """
     M=M+1\t//SP++
 """.format(stack_pointer=STACK_POINTER_BASE_ADDRESS)
 
-MOVE_STACK_POINTER_DOWN = """{stack_pointer}
+MOVE_STACK_POINTER_DOWN = """
+    {stack_pointer}
     M=M-1\t//SP--
 """.format(stack_pointer=STACK_POINTER_BASE_ADDRESS)
+
+
+POP_VALUE_ON_TOP_OF_STACK = """
+    {stack_pointer}
+    M=M-1  // SP--  -> Move stored address to top element of stack
+    A=M    // Point to top of stack
+    D=M    // Store value on top of stack
+""".format(stack_pointer=STACK_POINTER_BASE_ADDRESS)
+
+PUSH_VALUE_ON_TOP_OF_STACK = """
+    {stack_pointer}
+    A=M    // Point to the current top of the stack 
+    M=D    // Modify top of stack by storing D (*SP = DATA)
+    
+    {stack_pointer}
+    M=M+1  // SP++ -> Move stored address to above of top of stack
+""".format(stack_pointer=STACK_POINTER_BASE_ADDRESS)
+
 
 TWO_OPERANDS_POP_OPERATIONS = """
     //
@@ -39,21 +58,20 @@ TWO_OPERANDS_POP_OPERATIONS = """
     // Pop two operands from the stack and get them ready to be operated
     //
 
-    {stack_pointer_down}
-    A=M\t\t// *sp is in top of stack
-    D=M\t\t// Get value on top of stack
+    {pop_top_of_stack}
 
     @second_operand
-    M=D\t\t// Keep value on top of stack in second_operand
+    M=D    // Keep value on top of stack in second_operand
 
-    {stack_pointer_down}
-    A=M\t\t// *sp is in top of stack
-    D=M\t\t// Get value on top of stack
+    {pop_top_of_stack}
+    
+    @first_operand
+    M=D    // Keep value on top of stack in first_operand
 
     //
     // END: TWO_OPERANDS_POP_OPERATIONS
     //
-""".format(stack_pointer_down=MOVE_STACK_POINTER_DOWN)
+""".format(pop_top_of_stack=POP_VALUE_ON_TOP_OF_STACK)
 
 
 class BaseArithmeticAssemblyCommand:
@@ -69,10 +87,11 @@ class BaseArithmeticAssemblyCommand:
 
     def get_assembly(self) -> str:
         return self.assembly.format(
-            stack_pointer=STACK_POINTER_BASE_ADDRESS,
             operator=self.command_name,
             translated_operator=self.translated_operator,
-            pop_two_operands=TWO_OPERANDS_POP_OPERATIONS
+            pop_two_operands=TWO_OPERANDS_POP_OPERATIONS,
+            pop_from_stack=POP_VALUE_ON_TOP_OF_STACK,
+            push_to_stack=PUSH_VALUE_ON_TOP_OF_STACK,
         )
 
 
@@ -81,15 +100,13 @@ class TwoArgumentArithmeticCommand(BaseArithmeticAssemblyCommand):
     // {operator}
     {pop_two_operands}
 
+    @first_operand
+    D=M
+
     @second_operand
-    D=D{translated_operator}M\t// We do: first OP second
+    D=D{translated_operator}M  // We do: first_operand <OP> second_operand
 
-    {stack_pointer}
-    A=M
-    M=D\t\t// Store result in top of stack
-
-    {stack_pointer}
-    M=M+1\t// Move stack pointer one position up
+    {push_to_stack}
     """
     command_mapping = DOUBLE_ARG_ARITHMETIC_COMMAND_TO_OPERATOR
 
@@ -98,18 +115,11 @@ class OneArgumentArithmeticCommand(BaseArithmeticAssemblyCommand):
     assembly = """
     // {operator}
 
-    {stack_pointer}
-    M=M-1  // SP--
-    A=M    // *sp is in top of stack
+    {pop_from_stack}
 
-    D={translated_operator}M    // we get the data from top of stack, and we apply operator
+    D={translated_operator}D    // we get the data from top of stack, and we apply operator
 
-    {stack_pointer}
-    A=M
-    M=D   // Store result in top of stack
-
-    {stack_pointer}
-    M=M+1  // Move stack pointer one position up
+    {push_to_stack}
     """
     command_mapping = SINGLE_ARG_ARITHMETIC_COMMAND_TO_OPERATOR
 
@@ -119,6 +129,9 @@ class ComparisonCommand(BaseArithmeticAssemblyCommand):
     // {operator}
     
     {pop_two_operands}
+    
+    @first_operand
+    D=M
 
     @second_operand
     D=D-M  // We take the difference between (first - second)
@@ -137,12 +150,7 @@ class ComparisonCommand(BaseArithmeticAssemblyCommand):
         0;JMP
         
     (PUSH_RESULT_TO_STACK)
-        {stack_pointer}
-        A=M  // Point to where the top is
-        M=D  // Set the top to new value
-        
-        {stack_pointer}
-        M=M+1  // Move top one position up
+        {push_to_stack}
     """
     command_mapping = COMPARISON_COMMAND_TO_OPERATOR
 
@@ -177,11 +185,12 @@ class BasePopPushLocalCommand:
 
     def get_assembly(self) -> str:
         return self.assembly.format(
-            stack_pointer=STACK_POINTER_BASE_ADDRESS,
             index=self.index,
             segment=self.segment,
             segment_name=self.segment_name,
-            address_calculation=_get_real_address_calculation(self.index)
+            address_calculation=_get_real_address_calculation(self.index),
+            push_to_stack=PUSH_VALUE_ON_TOP_OF_STACK,
+            pop_from_stack=POP_VALUE_ON_TOP_OF_STACK,
         )
 
 
@@ -193,12 +202,7 @@ class PushLocalCommand(BasePopPushLocalCommand):
     {address_calculation}
     D=M   // D stores the value of *segment[index]
 
-    {stack_pointer}
-    A=M  // Now pointing to top of stack
-    M=D  // *sp = *segment[index]
-
-    {stack_pointer}
-    M=M+1  // SP++
+    {push_to_stack}
     """
 
 
@@ -206,10 +210,7 @@ class PopLocalCommand(BasePopPushLocalCommand):
     assembly = """
     // pop {segment_name} {index}
 
-    {stack_pointer}
-    M=M-1  // SP--
-    A=M    // Stack pointer now in top element
-    D=M    // Store whatever the top of the stack had
+    {pop_from_stack}
 
     @{segment}
     {address_calculation}
@@ -226,9 +227,10 @@ class BasePopPushStaticCommand:
 
     def get_assembly(self) -> str:
         return self.assembly.format(
-            stack_pointer=STACK_POINTER_BASE_ADDRESS,
             index=self.index,
-            filename=self.filename.stem
+            filename=self.filename.stem,
+            push_to_stack=PUSH_VALUE_ON_TOP_OF_STACK,
+            pop_from_stack=POP_VALUE_ON_TOP_OF_STACK,
         )
 
 
@@ -239,12 +241,7 @@ class PushStaticCommand(BasePopPushStaticCommand):
     @{filename}.{index}
     D=M   // D = *filename.index
 
-    {stack_pointer}
-    A=M  // Now pointing to top of stack
-    M=D  // *sp = *filename.index
-
-    {stack_pointer}
-    M=M+1  // SP++
+    {push_to_stack}
     """
 
 
@@ -252,10 +249,7 @@ class PopStaticCommand(BasePopPushStaticCommand):
     assembly = """
     // pop static {index}
 
-    {stack_pointer}
-    M=M-1  // SP--
-    A=M    // Stack pointer now in top element
-    D=M    // Store whatever the top of the stack had
+    {pop_from_stack}
 
     @{filename}.{index}
     M=D    //  *addr = *sp
@@ -269,12 +263,7 @@ class PushConstantCommand:
     @{value}
     D=A
 
-    {stack_pointer}
-    A=M
-    M=D
-
-    {stack_pointer}
-    M=M+1  // SP++
+    {push_to_stack}
     """
 
     def __init__(self, command: Command):
@@ -282,8 +271,8 @@ class PushConstantCommand:
 
     def get_assembly(self) -> str:
         return self.assembly.format(
-            stack_pointer=STACK_POINTER_BASE_ADDRESS,
-            value=self.value
+            value=self.value,
+            push_to_stack=PUSH_VALUE_ON_TOP_OF_STACK,
         )
 
 
@@ -303,10 +292,11 @@ class BasePopPushTempCommand:
 
     def get_assembly(self) -> str:
         return self.assembly.format(
-            stack_pointer=STACK_POINTER_BASE_ADDRESS,
             index=self.index,
             segment=SEGMENT_ALIASES[MemorySegment.TEMP],
-            address_calculation=self._get_real_address()
+            address_calculation=self._get_real_address(),
+            pop_from_stack=POP_VALUE_ON_TOP_OF_STACK,
+            push_to_stack=PUSH_VALUE_ON_TOP_OF_STACK,
         )
 
 
@@ -318,12 +308,7 @@ class PushTempCommand(BasePopPushTempCommand):
     {address_calculation}
     D=M   // D stores the value of *segment[index]
 
-    {stack_pointer}
-    A=M  // Now pointing to top of stack
-    M=D  // *sp = *addr
-
-    {stack_pointer}
-    M=M+1  // SP++
+    {push_to_stack}
     """
 
 
@@ -331,10 +316,7 @@ class PopTempCommand(BasePopPushTempCommand):
     assembly = """
     // pop temp {index}
 
-    {stack_pointer}
-    M=M-1  // SP--
-    A=M    // Stack pointer now in top element
-    D=M    // Store whatever the top of the stack had
+    {pop_from_stack}
 
     @{segment}
     {address_calculation}
@@ -356,9 +338,10 @@ class BasePopPushPointerCommand:
 
     def get_assembly(self) -> str:
         return self.assembly.format(
-            stack_pointer=STACK_POINTER_BASE_ADDRESS,
             index=self.index,
-            segment=self.segment
+            segment=self.segment,
+            pop_from_stack=POP_VALUE_ON_TOP_OF_STACK,
+            push_to_stack=PUSH_VALUE_ON_TOP_OF_STACK,
         )
 
 
@@ -369,12 +352,7 @@ class PushPointerCommand(BasePopPushPointerCommand):
     @{segment}
     D=M   // Get the value stored in THIS/THAT
 
-    {stack_pointer}
-    A=M  // Now pointing to top of stack
-    M=D  // Store in top of stack the value of THIS/THAT
-
-    {stack_pointer}
-    M=M+1  // SP++
+    {push_to_stack}
     """
 
 
@@ -382,10 +360,7 @@ class PopPointerCommand(BasePopPushPointerCommand):
     assembly = """
     // pop temp {index}
 
-    {stack_pointer}
-    M=M-1  // SP--
-    A=M    // Stack pointer now in top element
-    D=M    // Store whatever the top of the stack had
+    {pop_from_stack}
 
     @{segment}
     M=D   // Store in THIS/THAT what was in the top of the stack 
