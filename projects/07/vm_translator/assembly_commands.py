@@ -1,4 +1,5 @@
 from pathlib import Path
+import uuid
 
 from command import Command
 from enumerations import MemorySegment
@@ -92,6 +93,7 @@ class BaseArithmeticAssemblyCommand:
             pop_two_operands=TWO_OPERANDS_POP_OPERATIONS,
             pop_from_stack=POP_VALUE_ON_TOP_OF_STACK,
             push_to_stack=PUSH_VALUE_ON_TOP_OF_STACK,
+            unique_identifier=uuid.uuid4().int
         )
 
 
@@ -136,20 +138,20 @@ class ComparisonCommand(BaseArithmeticAssemblyCommand):
     @second_operand
     D=D-M  // We take the difference between (first - second)
     
-    @STORE_TRUE
+    @STORE_TRUE_{unique_identifier}
     D;{translated_operator}
-    
-    (STORE_FALSE)
+
+    (STORE_FALSE_{unique_identifier})
         D=0
-        @PUSH_RESULT_TO_STACK
+        @PUSH_RESULT_TO_STACK_{unique_identifier}
         0;JMP
-    
-    (STORE_TRUE)
+
+    (STORE_TRUE_{unique_identifier})
         D=-1  // This sets all bits to 1
-        @PUSH_RESULT_TO_STACK
+        @PUSH_RESULT_TO_STACK_{unique_identifier}
         0;JMP
-        
-    (PUSH_RESULT_TO_STACK)
+
+    (PUSH_RESULT_TO_STACK_{unique_identifier})
         {push_to_stack}
     """
     command_mapping = COMPARISON_COMMAND_TO_OPERATOR
