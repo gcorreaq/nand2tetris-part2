@@ -44,4 +44,4 @@ class Command:
         elif self.target_segment is None and self.index is None:
             return ArithmeticCommandClass(command_class)
         else:
-            raise ValueError(f'Invalid command: {command_class=} {self.target_segment=} {self.index=}')
+            raise ValueError(f'Invalid command: {command_class} {self.target_segment} {self.index}')
