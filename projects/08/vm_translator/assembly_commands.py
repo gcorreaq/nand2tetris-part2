@@ -166,17 +166,6 @@ SEGMENT_ALIASES = {
 }
 
 
-def _get_real_address_calculation(index: int) -> str:
-    if index == 0:
-        offset = "A=M"
-    else:
-        offset = "A=M+1"
-        for repetitions in range(index - 1):
-            offset += "\n    A=A+1"
-
-    return offset
-
-
 class BasePopPushLocalCommand:
     assembly = ''
 
@@ -190,7 +179,6 @@ class BasePopPushLocalCommand:
             index=self.index,
             segment=self.segment,
             segment_name=self.segment_name,
-            address_calculation=_get_real_address_calculation(self.index),
             push_to_stack=PUSH_VALUE_ON_TOP_OF_STACK,
             pop_from_stack=POP_VALUE_ON_TOP_OF_STACK,
         )
@@ -200,8 +188,11 @@ class PushLocalCommand(BasePopPushLocalCommand):
     assembly = """
     // push {segment_name} {index}
 
+    @{index}
+    D=A
+
     @{segment}
-    {address_calculation}
+    A=M+D  // Base address + offset (index) => SEGMENT[INDEX]
     D=M   // D stores the value of *segment[index]
 
     {push_to_stack}
@@ -211,11 +202,18 @@ class PushLocalCommand(BasePopPushLocalCommand):
 class PopLocalCommand(BasePopPushLocalCommand):
     assembly = """
     // pop {segment_name} {index}
+    @{index}
+    D=A
+    
+    @{segment}
+    D=M+D
+    @target_address
+    M=D
 
     {pop_from_stack}
 
-    @{segment}
-    {address_calculation}
+    @target_address
+    A=M
     M=D    //  *addr = *sp
     """
 
@@ -301,6 +299,7 @@ class BasePopPushTempCommand:
             push_to_stack=PUSH_VALUE_ON_TOP_OF_STACK,
         )
 
+# TODO: Fix address calculation for <push temp> and <pop temp>
 
 class PushTempCommand(BasePopPushTempCommand):
     assembly = """
