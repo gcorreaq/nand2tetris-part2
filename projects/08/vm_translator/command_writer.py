@@ -1,6 +1,6 @@
 import logging
 from pathlib import Path
-from typing import Iterable
+from typing import Iterable, TextIO
 
 from assembly_commands import (
     BasePopPushStaticCommand,
@@ -92,19 +92,15 @@ def _process_memory_command(command: Command, original_filename: Path) -> str:
 
 class CommandWriter:
 
-    def __init__(self, original_filename: Path, commands: Iterable[Command]):
-        self.original_filename = original_filename
+    def __init__(self, output_file: TextIO, input_file_path: Path, commands: Iterable[Command]):
+        self.output_file = output_file
+        self.input_filename = input_file_path
+        self.output_filename = self.output_file.name
         self.commands = commands
 
     def compile(self):
-        output_filename = self.original_filename.with_suffix('.asm')
-        logger.info(
-            'Compiling commands from file %s into file %s',
-            self.original_filename,
-            output_filename
-        )
-        with output_filename.open(mode='w') as file_obj:
-            file_obj.writelines(self._translate_commands())
+        logger.info('Compiling commands into file %s', self.output_filename)
+        self.output_file.writelines(self._translate_commands())
 
     def _translate_commands(self):
         for command in self.commands:
@@ -113,4 +109,4 @@ class CommandWriter:
                 yield _process_arithmetic_command(command)
             else:
                 logger.debug('Command %s is of type Memory', command)
-                yield _process_memory_command(command, self.original_filename)
+                yield _process_memory_command(command, self.input_filename)

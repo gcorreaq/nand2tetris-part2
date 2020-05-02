@@ -18,7 +18,7 @@ class Parser:
             yield self._inspect_raw_command(raw_command)
 
     def _get_raw_instructions(self) -> Iterator[List[str]]:
-        logger.info('Processing lines in file %s', self.file_obj)
+        logger.info('Getting raw instructions from file %s', self.file_obj)
         line_number = 0
         for line_number, line in enumerate(self.file_obj, start=1):
             logger.debug(
