@@ -1,4 +1,5 @@
 import enum
+from itertools import chain
 
 
 class ArithmeticCommandClass(enum.Enum):
@@ -16,6 +17,16 @@ class ArithmeticCommandClass(enum.Enum):
 class StackCommandClass(enum.Enum):
     POP = 'pop'
     PUSH = 'push'
+
+
+COMMAND_TO_COMMAND_CLASS_MEMBER = {
+    member.value: member
+    for member in chain(
+        ArithmeticCommandClass,
+        BranchCommandClass,
+        StackCommandClass
+    )
+}
 
 
 class MemorySegment(enum.Enum):
