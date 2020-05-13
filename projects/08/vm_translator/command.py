@@ -4,6 +4,7 @@ from enumerations import (
     CommandClass,
     COMMAND_TO_COMMAND_CLASS_MEMBER,
     MemorySegment,
+    StackCommandClass,
 )
 
 
@@ -12,13 +13,15 @@ class Command:
             self,
             arg0: str,
             arg1: Optional[str] = None,
-            arg2: Optional[str] = None):
+            arg2: Optional[str] = None,
+            current_function_name: Optional[str] = None):
         self.arg0 = arg0
         self.arg1 = arg1
         self.arg2: Optional[int] = self._parse_and_validate_arg2(arg2)
         self.command_class: CommandClass = self._parse_and_validate_command_class()
         self.target_segment: Optional[MemorySegment] = self._parse_and_validate_segment()
         self.index: Optional[int] = self.arg2
+        self.current_function_name = current_function_name
 
     def __str__(self):
         if self.target_segment is None and self.index is None:

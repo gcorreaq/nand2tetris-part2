@@ -5,6 +5,9 @@ from typing import Iterable, TextIO
 from assembly_commands import (
     BasePopPushStaticCommand,
     ComparisonCommand,
+    GoToLabelCommand,
+    IfGoToLabelCommand,
+    LabelCommand,
     OneArgumentArithmeticCommand,
     PopLocalCommand,
     PopPointerCommand,
@@ -20,6 +23,7 @@ from assembly_commands import (
 from command import Command
 from enumerations import (
     ArithmeticCommandClass,
+    BranchCommandClass,
     MemorySegment,
     StackCommandClass,
 )
@@ -34,6 +38,9 @@ COMMAND_TO_ASSEMBLY = {
     ArithmeticCommandClass.EQ: ComparisonCommand,
     ArithmeticCommandClass.GT: ComparisonCommand,
     ArithmeticCommandClass.LT: ComparisonCommand,
+    BranchCommandClass.GOTO: GoToLabelCommand,
+    BranchCommandClass.IF_GOTO: IfGoToLabelCommand,
+    BranchCommandClass.LABEL: LabelCommand,
 }
 
 MEMORY_COMMANDS_TO_SEGMENT_AND_ASSEMBLY = {
@@ -65,6 +72,15 @@ logger = logging.getLogger("vm_translator.command_writer")
 def _process_arithmetic_command(command: Command) -> str:
     assembly_compiler_class = COMMAND_TO_ASSEMBLY[command.command_class]
     assembly_compiler = assembly_compiler_class(command)
+    logger.debug('Command %s is assembly command %s', command, assembly_compiler)
+    assembly_string = assembly_compiler.get_assembly()
+    logger.debug('Result of compiling command %s is %r', command, assembly_string)
+    return assembly_string
+
+
+def _process_branch_command(command: Command, input_filename: Path) -> str:
+    assembly_compiler_class = COMMAND_TO_ASSEMBLY[command.command_class]
+    assembly_compiler = assembly_compiler_class(command, input_filename)
     logger.debug('Command %s is assembly command %s', command, assembly_compiler)
     assembly_string = assembly_compiler.get_assembly()
     logger.debug('Result of compiling command %s is %r', command, assembly_string)
@@ -107,6 +123,9 @@ class CommandWriter:
             if isinstance(command.command_class, ArithmeticCommandClass):
                 logger.debug('Command %s is of type Arithmetic', command)
                 yield _process_arithmetic_command(command)
+            elif isinstance(command.command_class, BranchCommandClass):
+                logger.debug('Command %s is of type Arithmetic', command)
+                yield _process_branch_command(command, self.input_filename)
             else:
                 logger.debug('Command %s is of type Memory', command)
                 yield _process_memory_command(command, self.input_filename)

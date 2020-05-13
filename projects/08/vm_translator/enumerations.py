@@ -23,6 +23,12 @@ class StackCommandClass(CommandClass):
     PUSH = 'push'
 
 
+class BranchCommandClass(CommandClass):
+    LABEL = 'label'
+    GOTO = 'goto'
+    IF_GOTO = 'if-goto'
+
+
 COMMAND_TO_COMMAND_CLASS_MEMBER = {
     member.value: member
     for member in chain(
