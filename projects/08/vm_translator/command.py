@@ -30,7 +30,7 @@ class Command:
         if self.arg1 is None:
             return None
 
-        if isinstance(self.command_class, CommandClass):
+        if isinstance(self.command_class, StackCommandClass):
             return MemorySegment(self.arg1)
 
     def _parse_and_validate_arg2(self, raw_arg2):

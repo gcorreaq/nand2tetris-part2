@@ -2,7 +2,11 @@ import enum
 from itertools import chain
 
 
-class ArithmeticCommandClass(enum.Enum):
+class CommandClass(enum.Enum):
+    pass
+
+
+class ArithmeticCommandClass(CommandClass):
     ADD = 'add'
     SUB = 'sub'
     NEG = 'neg'
@@ -14,7 +18,7 @@ class ArithmeticCommandClass(enum.Enum):
     NOT = 'not'
 
 
-class StackCommandClass(enum.Enum):
+class StackCommandClass(CommandClass):
     POP = 'pop'
     PUSH = 'push'
 
@@ -24,7 +28,7 @@ COMMAND_TO_COMMAND_CLASS_MEMBER = {
     for member in chain(
         ArithmeticCommandClass,
         BranchCommandClass,
-        StackCommandClass
+        StackCommandClass,
     )
 }
 

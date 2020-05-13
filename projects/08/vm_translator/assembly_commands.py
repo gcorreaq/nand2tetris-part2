@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Dict
 import uuid
 
 from command import Command
@@ -77,7 +78,7 @@ TWO_OPERANDS_POP_OPERATIONS = """
 
 class BaseArithmeticAssemblyCommand:
     assembly = ''
-    command_mapping = {}
+    command_mapping: Dict[str, str] = {}
 
     def __init__(self, command: Command):
         self.command_name = command.command_class.value

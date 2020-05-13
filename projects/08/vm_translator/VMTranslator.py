@@ -1,6 +1,7 @@
 import argparse
 import logging
 from pathlib import Path
+from typing import Iterable
 import sys
 
 from parser import Parser
@@ -20,7 +21,7 @@ def _setup_logger():
 logger = _setup_logger()
 
 
-def _get_target_files(target_path):
+def _get_target_files(target_path: Path) -> Iterable[Path]:
     if target_path.is_dir():
         target_files = target_path.glob('*.vm')
     elif target_path.is_file():
@@ -31,7 +32,7 @@ def _get_target_files(target_path):
     return target_files
 
 
-def _resolve_output_filename(path: Path):
+def _resolve_output_filename(path: Path) -> Path:
     if path.is_dir():
         new_filename = (path / path.name)
     else:
