@@ -2,7 +2,18 @@ import logging
 from typing import Iterator, List, TextIO
 
 from command import Command
+from enumerations import (
+    ArithmeticCommandClass,
+    BranchCommandClass,
+    StackCommandClass,
+)
 
+
+NARGS_FOR_COMMAND_CLASSES = {
+    ArithmeticCommandClass: 0,
+    StackCommandClass: 2,
+    BranchCommandClass: 1
+}
 
 logger = logging.getLogger("vm_translator.parser")
 
@@ -65,11 +76,18 @@ class Parser:
     def _inspect_raw_command(self, raw_command: List[str]) -> Command:
         logger.debug('Inspecting raw command %r', raw_command)
         number_of_elements = len(raw_command)
-        if number_of_elements not in {1, 3}:
+        if number_of_elements < 1 or number_of_elements > 3:
             raise ValueError(
                 f"Invalid command length ({number_of_elements}) for {raw_command}"
             )
 
         command = Command(*raw_command)
+        expected_nargs = NARGS_FOR_COMMAND_CLASSES[type(command.command_class)]
+
+        if len(raw_command[1:]) != expected_nargs:
+            raise ValueError(
+                f"Invalid command length ({number_of_elements}) for {raw_command}"
+            )
+
         logger.debug('Created Command instance %s', command)
         return command
