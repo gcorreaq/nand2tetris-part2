@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Dict
 import uuid
 
 from command import Command
@@ -77,7 +78,7 @@ TWO_OPERANDS_POP_OPERATIONS = """
 
 class BaseArithmeticAssemblyCommand:
     assembly = ''
-    command_mapping = {}
+    command_mapping: Dict[str, str] = {}
 
     def __init__(self, command: Command):
         self.command_name = command.command_class.value
@@ -166,17 +167,6 @@ SEGMENT_ALIASES = {
 }
 
 
-def _get_real_address_calculation(index: int) -> str:
-    if index == 0:
-        offset = "A=M"
-    else:
-        offset = "A=M+1"
-        for repetitions in range(index - 1):
-            offset += "\n    A=A+1"
-
-    return offset
-
-
 class BasePopPushLocalCommand:
     assembly = ''
 
@@ -190,7 +180,6 @@ class BasePopPushLocalCommand:
             index=self.index,
             segment=self.segment,
             segment_name=self.segment_name,
-            address_calculation=_get_real_address_calculation(self.index),
             push_to_stack=PUSH_VALUE_ON_TOP_OF_STACK,
             pop_from_stack=POP_VALUE_ON_TOP_OF_STACK,
         )
@@ -200,8 +189,11 @@ class PushLocalCommand(BasePopPushLocalCommand):
     assembly = """
     // push {segment_name} {index}
 
+    @{index}
+    D=A
+
     @{segment}
-    {address_calculation}
+    A=M+D  // Base address + offset (index) => SEGMENT[INDEX]
     D=M   // D stores the value of *segment[index]
 
     {push_to_stack}
@@ -211,11 +203,18 @@ class PushLocalCommand(BasePopPushLocalCommand):
 class PopLocalCommand(BasePopPushLocalCommand):
     assembly = """
     // pop {segment_name} {index}
+    @{index}
+    D=A
+    
+    @{segment}
+    D=M+D
+    @target_address
+    M=D
 
     {pop_from_stack}
 
-    @{segment}
-    {address_calculation}
+    @target_address
+    A=M
     M=D    //  *addr = *sp
     """
 
@@ -301,6 +300,7 @@ class BasePopPushTempCommand:
             push_to_stack=PUSH_VALUE_ON_TOP_OF_STACK,
         )
 
+# TODO: Fix address calculation for <push temp> and <pop temp>
 
 class PushTempCommand(BasePopPushTempCommand):
     assembly = """
@@ -367,3 +367,74 @@ class PopPointerCommand(BasePopPushPointerCommand):
     @{segment}
     M=D   // Store in THIS/THAT what was in the top of the stack 
     """
+
+
+LABEL_STANDARD_FORMAT = "{filename}.{function_name}${label_name}"
+
+
+class BaseBranchCommand:
+    assembly = ''
+
+    def __init__(self, command: Command, input_file_path: Path):
+        self.filename = input_file_path.stem
+        self.current_function_name = command.current_function_name
+        self.command = command
+        self.label_name = self.command.arg1
+
+    def _get_label_tag(self) -> str:
+        current_function_name = self.current_function_name
+        if current_function_name is None:
+            current_function_name = 'main'
+
+        return LABEL_STANDARD_FORMAT.format(
+            filename=self.filename,
+            function_name=current_function_name,
+            label_name=self.label_name
+        )
+
+
+class LabelCommand(BaseBranchCommand):
+    assembly = """
+    // label {label_name}
+
+    ({label_tag})
+    """
+
+    def get_assembly(self) -> str:
+        return self.assembly.format(
+            label_name=self.label_name,
+            label_tag=self._get_label_tag()
+        )
+
+
+class GoToLabelCommand(BaseBranchCommand):
+    assembly = """
+    // goto {label_name}
+
+    @{label_tag}
+    0;JMP  // Unconditional jump
+    """
+
+    def get_assembly(self) -> str:
+        return self.assembly.format(
+            label_name=self.label_name,
+            label_tag=self._get_label_tag()
+        )
+
+
+class IfGoToLabelCommand(BaseBranchCommand):
+    assembly = """
+    // if-goto {label_name}
+    
+    {pop_from_stack}
+    
+    @{label_tag}
+    D;JNE  // Jump only when DATA is different than zero (True)
+    """
+
+    def get_assembly(self) -> str:
+        return self.assembly.format(
+            label_name=self.label_name,
+            pop_from_stack=POP_VALUE_ON_TOP_OF_STACK,
+            label_tag=self._get_label_tag()
+        )

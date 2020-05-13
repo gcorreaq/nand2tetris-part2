@@ -7,8 +7,12 @@
 __pycache__/
 *.pyc
 
+# MyPy cache
+.mypy_cache/
+
 # Auto generated files
 *.hack
 *.out
+*.asm
 
 tools/

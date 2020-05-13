@@ -1,10 +1,13 @@
 import logging
 from pathlib import Path
-from typing import Iterable
+from typing import Iterable, TextIO
 
 from assembly_commands import (
     BasePopPushStaticCommand,
     ComparisonCommand,
+    GoToLabelCommand,
+    IfGoToLabelCommand,
+    LabelCommand,
     OneArgumentArithmeticCommand,
     PopLocalCommand,
     PopPointerCommand,
@@ -20,6 +23,7 @@ from assembly_commands import (
 from command import Command
 from enumerations import (
     ArithmeticCommandClass,
+    BranchCommandClass,
     MemorySegment,
     StackCommandClass,
 )
@@ -34,6 +38,9 @@ COMMAND_TO_ASSEMBLY = {
     ArithmeticCommandClass.EQ: ComparisonCommand,
     ArithmeticCommandClass.GT: ComparisonCommand,
     ArithmeticCommandClass.LT: ComparisonCommand,
+    BranchCommandClass.GOTO: GoToLabelCommand,
+    BranchCommandClass.IF_GOTO: IfGoToLabelCommand,
+    BranchCommandClass.LABEL: LabelCommand,
 }
 
 MEMORY_COMMANDS_TO_SEGMENT_AND_ASSEMBLY = {
@@ -71,6 +78,15 @@ def _process_arithmetic_command(command: Command) -> str:
     return assembly_string
 
 
+def _process_branch_command(command: Command, input_filename: Path) -> str:
+    assembly_compiler_class = COMMAND_TO_ASSEMBLY[command.command_class]
+    assembly_compiler = assembly_compiler_class(command, input_filename)
+    logger.debug('Command %s is assembly command %s', command, assembly_compiler)
+    assembly_string = assembly_compiler.get_assembly()
+    logger.debug('Result of compiling command %s is %r', command, assembly_string)
+    return assembly_string
+
+
 def _process_memory_command(command: Command, original_filename: Path) -> str:
     assembly_compiler_class = MEMORY_COMMANDS_TO_SEGMENT_AND_ASSEMBLY[command.command_class][command.target_segment]
     logger.debug(
@@ -92,25 +108,24 @@ def _process_memory_command(command: Command, original_filename: Path) -> str:
 
 class CommandWriter:
 
-    def __init__(self, original_filename: Path, commands: Iterable[Command]):
-        self.original_filename = original_filename
+    def __init__(self, output_file: TextIO, input_file_path: Path, commands: Iterable[Command]):
+        self.output_file = output_file
+        self.input_filename = input_file_path
+        self.output_filename = self.output_file.name
         self.commands = commands
 
     def compile(self):
-        output_filename = self.original_filename.with_suffix('.asm')
-        logger.info(
-            'Compiling commands from file %s into file %s',
-            self.original_filename,
-            output_filename
-        )
-        with output_filename.open(mode='w') as file_obj:
-            file_obj.writelines(self._translate_commands())
+        logger.info('Compiling commands into file %s', self.output_filename)
+        self.output_file.writelines(self._translate_commands())
 
     def _translate_commands(self):
         for command in self.commands:
             if isinstance(command.command_class, ArithmeticCommandClass):
                 logger.debug('Command %s is of type Arithmetic', command)
                 yield _process_arithmetic_command(command)
+            elif isinstance(command.command_class, BranchCommandClass):
+                logger.debug('Command %s is of type Arithmetic', command)
+                yield _process_branch_command(command, self.input_filename)
             else:
                 logger.debug('Command %s is of type Memory', command)
-                yield _process_memory_command(command, self.original_filename)
+                yield _process_memory_command(command, self.input_filename)
