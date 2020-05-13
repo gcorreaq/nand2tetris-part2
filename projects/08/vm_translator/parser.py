@@ -7,6 +7,15 @@ from command import Command
 logger = logging.getLogger("vm_translator.parser")
 
 
+def _discard_inline_comment(line_components: List[str]) -> Iterator[str]:
+    for component in line_components:
+        if component != '//':
+            yield component
+        else:
+            logger.debug('Found an inline comment in parsed line: %r', line_components)
+            break
+
+
 class Parser:
     def __init__(self, file_obj: TextIO):
         self.file_obj = file_obj
@@ -43,6 +52,9 @@ class Parser:
                 line_number,
                 line_components
             )
+
+            # Discard inline comments
+            line_components = list(_discard_inline_comment(line_components))
             yield line_components
         logger.info(
             'Processed %d lines in file %s',
