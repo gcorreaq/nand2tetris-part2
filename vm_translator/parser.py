@@ -5,14 +5,16 @@ from command import Command
 from enumerations import (
     ArithmeticCommandClass,
     BranchCommandClass,
+    FunctionCommandClass,
     StackCommandClass,
 )
 
 
 NARGS_FOR_COMMAND_CLASSES = {
-    ArithmeticCommandClass: 0,
-    StackCommandClass: 2,
-    BranchCommandClass: 1
+    ArithmeticCommandClass: {0},
+    StackCommandClass: {2},
+    BranchCommandClass: {1},
+    FunctionCommandClass: {0, 1, 2}
 }
 
 logger = logging.getLogger("vm_translator.parser")
@@ -84,7 +86,7 @@ class Parser:
         command = Command(*raw_command)
         expected_nargs = NARGS_FOR_COMMAND_CLASSES[type(command.command_class)]
 
-        if len(raw_command[1:]) != expected_nargs:
+        if len(raw_command[1:]) not in expected_nargs:
             raise ValueError(
                 f"Invalid command length ({number_of_elements}) for {raw_command}"
             )

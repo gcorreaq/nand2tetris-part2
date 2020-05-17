@@ -29,11 +29,18 @@ class BranchCommandClass(CommandClass):
     IF_GOTO = 'if-goto'
 
 
+class FunctionCommandClass(CommandClass):
+    FUNCTION = 'function'
+    CALL = 'call'
+    RETURN = 'return'
+
+
 COMMAND_TO_COMMAND_CLASS_MEMBER = {
     member.value: member
     for member in chain(
         ArithmeticCommandClass,
         BranchCommandClass,
+        FunctionCommandClass,
         StackCommandClass,
     )
 }

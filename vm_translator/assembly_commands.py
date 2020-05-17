@@ -76,8 +76,14 @@ TWO_OPERANDS_POP_OPERATIONS = """
 """.format(pop_top_of_stack=POP_VALUE_ON_TOP_OF_STACK)
 
 
-class BaseArithmeticAssemblyCommand:
+class AssemblyCommand:
     assembly = ''
+
+    def get_assembly(self) -> str:
+        pass
+
+
+class BaseArithmeticAssemblyCommand(AssemblyCommand):
     command_mapping: Dict[str, str] = {}
 
     def __init__(self, command: Command):
@@ -167,9 +173,7 @@ SEGMENT_ALIASES = {
 }
 
 
-class BasePopPushLocalCommand:
-    assembly = ''
-
+class BasePopPushLocalCommand(AssemblyCommand):
     def __init__(self, command: Command):
         self.index = command.index
         self.segment = SEGMENT_ALIASES[command.target_segment]
@@ -219,9 +223,7 @@ class PopLocalCommand(BasePopPushLocalCommand):
     """
 
 
-class BasePopPushStaticCommand:
-    assembly = ''
-
+class BasePopPushStaticCommand(AssemblyCommand):
     def __init__(self, command: Command, filename: Path):
         self.index = command.index
         self.filename = filename
@@ -277,9 +279,7 @@ class PushConstantCommand:
         )
 
 
-class BasePopPushTempCommand:
-    assembly = ''
-
+class BasePopPushTempCommand(AssemblyCommand):
     def __init__(self, command: Command):
         self.index = command.index
 
@@ -326,13 +326,11 @@ class PopTempCommand(BasePopPushTempCommand):
     """
 
 
-class BasePopPushPointerCommand:
+class BasePopPushPointerCommand(AssemblyCommand):
     INDEX_TO_SEGMENT_MAPPING = {
         0: SEGMENT_ALIASES[MemorySegment.THIS],
         1: SEGMENT_ALIASES[MemorySegment.THAT]
     }
-
-    assembly = ''
 
     def __init__(self, command: Command):
         self.index = command.index
@@ -372,9 +370,7 @@ class PopPointerCommand(BasePopPushPointerCommand):
 LABEL_STANDARD_FORMAT = "{filename}.{function_name}${label_name}"
 
 
-class BaseBranchCommand:
-    assembly = ''
-
+class BaseBranchCommand(AssemblyCommand):
     def __init__(self, command: Command, input_file_path: Path):
         self.filename = input_file_path.stem
         self.current_function_name = command.current_function_name
@@ -437,4 +433,213 @@ class IfGoToLabelCommand(BaseBranchCommand):
             label_name=self.label_name,
             pop_from_stack=POP_VALUE_ON_TOP_OF_STACK,
             label_tag=self._get_label_tag()
+        )
+
+
+class BaseFunctionCommand(AssemblyCommand):
+    def __init__(self, command: Command, input_file_path: Path):
+        self.command = command
+        self.filename = input_file_path.stem
+        self.current_function_name = self.command.current_function_name
+
+
+class CallFunctionCommand(BaseFunctionCommand):
+    assembly = """
+    // call {function_name} {nargs}
+    
+    // Save frame
+    // Save return address
+    @{return_address_label}
+    D=A
+    {push_to_stack}
+    
+    // Save LCL
+    @{lcl_address}
+    D=A
+    {push_to_stack}
+    
+    // Save ARG
+    @{arg_address}
+    D=A
+    {push_to_stack}
+    
+    // Save THIS
+    @{this_address}
+    D=A
+    {push_to_stack}
+    
+    // Save THAT
+    @{that_address}
+    D=A
+    {push_to_stack}
+    
+    // Set ARG pointer
+    @5  // We need to subtract 5, because of the 5 values that we pushed
+    D=A
+    @{nargs}  // How many args we have
+    D=D-A
+    {stack_pointer}
+    D=M-D  // DATA equals to SP - 5 - nArgs
+    @{arg_address}
+    M=D   // arg = SP - nArgs
+    
+    // Set LCL pointer
+    {stack_pointer}
+    D=A
+    @{lcl_address}
+    M=D  // LCL = SP
+
+    // Go unconditionally to the function being called
+    @{file_name}.{function_name)
+    0;JMP
+   
+    // We will return here after 
+    ({return_address_label})
+    """
+
+    def __init__(self, command: Command, input_file_path: Path, function_call_count: int):
+        super(CallFunctionCommand, self).__init__(command, input_file_path)
+        self.function_call_count = function_call_count
+
+    def _get_return_address_label(self):
+        return "{file_name}.{function_name}$ret.{index}".format(
+            file_name=self.filename,
+            function_name=self.command.arg1,
+            index=self.function_call_count
+        )
+
+    def get_assembly(self) -> str:
+        return self.assembly.format(
+            function_name=self.command.arg1,
+            nvars=self.command.arg2,
+            file_name=self.filename,
+            return_address_label=self._get_return_address_label(),
+            push_to_stack=PUSH_VALUE_ON_TOP_OF_STACK,
+            stack_pointer=STACK_POINTER_BASE_ADDRESS,
+            lcl_address=SEGMENT_ALIASES[MemorySegment.LOCAL],
+            arg_address=SEGMENT_ALIASES[MemorySegment.ARG],
+            this_address=SEGMENT_ALIASES[MemorySegment.THIS],
+            that_address=SEGMENT_ALIASES[MemorySegment.THAT]
+        )
+
+
+class FunctionCommand(BaseFunctionCommand):
+    assembly = """
+    // function {function_name} {nvars}
+    
+    // Entry point
+    ({file_name}.{function_name})
+    
+    // Set local segment by pushing zeros to the stack
+    {set_local_segment}
+    """
+
+    def _get_setup_of_local_segment(self) -> str:
+        base_command = ""
+        push_constant_zero_assembly = PushConstantCommand(
+            Command(arg0='push', arg1=MemorySegment.CONSTANT.value, arg2='0')
+        ).get_assembly()
+
+        for local_var_index in range(self.command.arg2):
+            base_command += f"{push_constant_zero_assembly}"
+
+        return base_command
+
+    def get_assembly(self) -> str:
+        return self.assembly.format(
+            function_name=self.command.arg1,
+            nvars=self.command.arg2,
+            file_name=self.filename,
+            set_local_segment=self._get_setup_of_local_segment()
+        )
+
+
+MOVE_ENDFRAME_BACK = """
+    @end_frame
+    M=M-1
+    A=M
+    D=M
+"""
+
+
+class ReturnCommand(BaseFunctionCommand):
+
+    assembly = """
+    // return
+    
+    //
+    // Get return address
+    //
+    @{lcl_address}
+    D=M
+
+    @end_frame
+    M=D   // stores endFrame = LCL (address where LCL points to)
+    
+    @5
+    D=A
+    @end_frame
+    D=M-D  // Calculates LCL - 5 (this is the return address of the caller's frame)
+    A=D   // Point to the return address of the caller's frame
+    D=M   // Store the location of the return address
+    @return_address
+    M=D   // `return_address` stores the return address for the caller
+    
+    //
+    // Set return value
+    //
+    {pop_from_stack}
+    
+    @{arg_address}
+    A=M
+    M=D  // Stores the top of the stack in ARG (what it will be the top of the stack for the caller
+    
+    //
+    // Reset stack pointer to ARG + 1
+    //
+    @{arg_address}
+    D=M+1
+    
+    {stack_pointer}
+    M=D
+
+    //
+    // Recovery of segment addresses
+    //
+    {move_endframe_back}
+    @{that_address}
+    M=D
+    
+    {move_endframe_back}
+    @{this_address}
+    M=D
+    
+    {move_endframe_back}
+    @{arg_address}
+    M=D
+
+    {move_endframe_back}
+    @{lcl_address}
+    M=D
+
+    //
+    // Go back to caller
+    //
+    @return_address
+    A=M
+    0;JMP
+    """
+
+    def get_assembly(self) -> str:
+        return self.assembly.format(
+            function_name=self.command.arg1,
+            nvars=self.command.arg2,
+            file_name=self.filename,
+            move_endframe_back=MOVE_ENDFRAME_BACK,
+            pop_from_stack=POP_VALUE_ON_TOP_OF_STACK,
+            stack_pointer=STACK_POINTER_BASE_ADDRESS,
+            lcl_address=SEGMENT_ALIASES[MemorySegment.LOCAL],
+            arg_address=SEGMENT_ALIASES[MemorySegment.ARG],
+            this_address=SEGMENT_ALIASES[MemorySegment.THIS],
+            that_address=SEGMENT_ALIASES[MemorySegment.THAT]
         )
